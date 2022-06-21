@@ -21,7 +21,7 @@
     <parent>
         <artifactId>sharding-spring</artifactId>
         <groupId>org.apache.shardingsphere</groupId>
-        <version>4.1.1</version>
+        <version>4.1.1.1-SNAPSHOT</version>
     </parent>
     <artifactId>sharding-transaction-spring</artifactId>
     <name>${project.artifactId}</name>

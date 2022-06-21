@@ -21,7 +21,7 @@
     <parent>
         <groupId>org.apache.shardingsphere</groupId>
         <artifactId>master-slave-core</artifactId>
-        <version>4.1.1</version>
+        <version>4.1.1.1-SNAPSHOT</version>
     </parent>
     <artifactId>master-slave-core-route</artifactId>
     <name>${project.artifactId}</name>

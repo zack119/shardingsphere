@@ -25,7 +25,7 @@
     </parent>
     <groupId>org.apache.shardingsphere</groupId>
     <artifactId>shardingsphere</artifactId>
-    <version>4.1.1</version>
+    <version>4.1.1.1-SNAPSHOT</version>
     <packaging>pom</packaging>
     <name>${project.artifactId}</name>
     
@@ -928,7 +928,7 @@
         <connection>scm:git:https://github.com/apache/shardingsphere.git</connection>
         <developerConnection>scm:git:https://github.com/apache/shardingsphere.git</developerConnection>
         <url>https://github.com/apache/shardingsphere.git</url>
-      <tag>4.1.1</tag>
+      <tag>4.1.1.1-SNAPSHOT</tag>
     </scm>
     
     <mailingLists>
@@ -939,4 +939,18 @@
             <unsubscribe>dev-unsubscribe@shardingsphere.apache.org</unsubscribe>
         </mailingList>
     </mailingLists>
+
+    <distributionManagement>
+        <snapshotRepository>
+            <id>deployment</id>
+            <name>egenie-snapshots</name>
+            <url>http://120.26.66.196:9899/repository/maven-snapshots/</url>
+        </snapshotRepository>
+        <repository>
+            <id>release</id>
+            <name>egenie-release</name>
+            <url>http://120.26.66.196:9899/repository/maven-releases/</url>
+        </repository>
+    </distributionManagement>
+
 </project>

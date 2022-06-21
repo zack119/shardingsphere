@@ -30,6 +30,7 @@ import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -41,6 +42,11 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Schema meta data loader.
@@ -73,7 +79,7 @@ public final class SchemaMetaDataLoader {
         }
         List<List<String>> tableGroups = Lists.partition(tableNames, Math.max(tableNames.size() / maxConnectionCount, 1));
         Map<String, TableMetaData> tableMetaDataMap = 1 == tableGroups.size()
-                ? load(dataSource.getConnection(), tableGroups.get(0), databaseType) : asyncLoad(dataSource, maxConnectionCount, tableNames, tableGroups, databaseType);
+                ? asyncLoad(dataSource, tableGroups.get(0), databaseType) : asyncLoad(dataSource, maxConnectionCount, tableNames, tableGroups, databaseType);
         return new SchemaMetaData(tableMetaDataMap);
     }
     
@@ -86,7 +92,7 @@ public final class SchemaMetaDataLoader {
             return result;
         }
     }
-    
+
     private static List<String> loadAllTableNames(final Connection connection, final String databaseType) throws SQLException {
         List<String> result = new LinkedList<>();
         try (ResultSet resultSet = connection.getMetaData().getTables(connection.getCatalog(), JdbcUtil.getSchema(connection, databaseType), null, new String[]{TABLE_TYPE})) {
@@ -103,7 +109,46 @@ public final class SchemaMetaDataLoader {
     private static boolean isSystemTable(final String table) {
         return table.contains("$") || table.contains("/");
     }
-    
+
+    private static Map<String, TableMetaData> asyncLoad(final DataSource dataSource, final Collection<String> tables,
+                                                        final String databaseType) throws SQLException {
+
+        List<List<String>> tableGroups = Lists.partition(new ArrayList<>(tables), 100);
+        Map<String, TableMetaData> result = new ConcurrentHashMap<>(tables.size(), 1);
+
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(
+                16,
+                16,
+                1,
+                TimeUnit.MINUTES,
+                new LinkedBlockingQueue<>(100),
+                new ThreadFactory() {
+                    private final AtomicInteger atomicInteger = new AtomicInteger(1);
+
+                    @Override
+                    public Thread newThread(final Runnable r) {
+                        return new Thread(r, "thread-async-load-table" + atomicInteger.getAndIncrement());
+                    }
+                },
+                new ThreadPoolExecutor.CallerRunsPolicy());
+
+        Collection<Future<Map<String, TableMetaData>>> futures = new LinkedList<>();
+        for (List<String> each : tableGroups) {
+            futures.add(executor.submit(() -> load(dataSource.getConnection(), each, databaseType)));
+        }
+        for (Future<Map<String, TableMetaData>> each : futures) {
+            try {
+                result.putAll(each.get());
+            } catch (final InterruptedException | ExecutionException ex) {
+                if (ex.getCause() instanceof SQLException) {
+                    throw (SQLException) ex.getCause();
+                }
+                Thread.currentThread().interrupt();
+            }
+        }
+        return result;
+    }
+
     private static Map<String, TableMetaData> asyncLoad(final DataSource dataSource, final int maxConnectionCount, final List<String> tableNames,
                                                         final List<List<String>> tableGroups, final String databaseType) throws SQLException {
         Map<String, TableMetaData> result = new ConcurrentHashMap<>(tableNames.size(), 1);
