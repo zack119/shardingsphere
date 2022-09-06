@@ -79,10 +79,14 @@ public abstract class BasePrepareEngine {
      * @return execution context
      */
     public ExecutionContext prepare(final String sql, final List<Object> parameters) {
+        // copy 一份参数列表
         List<Object> clonedParameters = cloneParameters(parameters);
+        // 解析 路由
         RouteContext routeContext = executeRoute(sql, clonedParameters);
         ExecutionContext result = new ExecutionContext(routeContext.getSqlStatementContext());
+        // 重写
         result.getExecutionUnits().addAll(executeRewrite(sql, clonedParameters, routeContext));
+        // 打印sql
         if (properties.<Boolean>getValue(ConfigurationPropertyKey.SQL_SHOW)) {
             SQLLogger.logSQL(sql, properties.<Boolean>getValue(ConfigurationPropertyKey.SQL_SIMPLE), result.getSqlStatementContext(), result.getExecutionUnits());
         }
@@ -92,14 +96,17 @@ public abstract class BasePrepareEngine {
     protected abstract List<Object> cloneParameters(List<Object> parameters);
     
     private RouteContext executeRoute(final String sql, final List<Object> clonedParameters) {
+        // 向DataNodeRouter实例中注册BaseRule对应的RouteDecorator
         registerRouteDecorator();
         return route(router, sql, clonedParameters);
     }
     
     private void registerRouteDecorator() {
+        // 循环所有通过SPI机制注册的RouteDecorator实现类
         for (Class<? extends RouteDecorator> each : OrderedRegistry.getRegisteredClasses(RouteDecorator.class)) {
             RouteDecorator routeDecorator = createRouteDecorator(each);
             Class<?> ruleClass = (Class<?>) routeDecorator.getType();
+            // 把分表规则BaseRule和RouteDecorator的对应关系注册到DataNodeRouter
             // FIXME rule.getClass().getSuperclass() == ruleClass for orchestration, should decouple extend between orchestration rule and sharding rule
             rules.stream().filter(rule -> rule.getClass() == ruleClass || rule.getClass().getSuperclass() == ruleClass).collect(Collectors.toList())
                     .forEach(rule -> router.registerDecorator(rule, routeDecorator));

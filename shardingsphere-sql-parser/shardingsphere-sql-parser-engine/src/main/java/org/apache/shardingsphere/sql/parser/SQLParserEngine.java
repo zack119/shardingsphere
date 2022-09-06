@@ -70,13 +70,16 @@ public final class SQLParserEngine {
     }
     
     private SQLStatement parse0(final String sql, final boolean useCache) {
+        // 从缓存中获取解析的SQLStatement
         if (useCache) {
             Optional<SQLStatement> cachedSQLStatement = cache.getSQLStatement(sql);
             if (cachedSQLStatement.isPresent()) {
                 return cachedSQLStatement.get();
             }
         }
+        // 根据不同的数据库类型创建解析树
         ParseTree parseTree = new SQLParserExecutor(databaseTypeName, sql).execute().getRootNode();
+        // 通过visit方法将解析树转换为SQLStatement
         SQLStatement result = (SQLStatement) ParseTreeVisitorFactory.newInstance(databaseTypeName, VisitorRule.valueOf(parseTree.getClass())).visit(parseTree);
         if (useCache) {
             cache.put(sql, result);
